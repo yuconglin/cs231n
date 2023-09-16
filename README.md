@@ -8,5 +8,5 @@ This repo includes my personal notes and practice for cs231n course.
 $ {in the project folder:}
 $ python3 -m venv ../cs231n_venv
 $ . ../cs231n_venv/bin/activate
-(cs231n_venv) $ pip install torch torchvision jupyterlab scipy Pillow
+(cs231n_venv) $ pip install torch torchvision jupyterlab scipy Pillow matplotlib future 
 ```
