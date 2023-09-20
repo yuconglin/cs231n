@@ -1,2 +1,4 @@
 data/**
 assignments/assignment1/cs231n/datasets/**
+*.pyc
+assignments/**/*.pyc

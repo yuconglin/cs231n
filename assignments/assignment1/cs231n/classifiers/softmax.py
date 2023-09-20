@@ -33,9 +33,22 @@ def softmax_loss_naive(W, X, y, reg):
     # regularization!                                                           #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
-
+    num_classes = W.shape[1]
+    num_train = X.shape[0]
+    S = X.dot(W)
+    U = np.exp(S)
+    c = np.sum(U, axis=1) # each training data: sum across all classes.
+    for i in range(num_train):
+        p = U[i] / c[i] # exp(f_i) / sum(exp(f_k)) (3.4.9 of d2l book)
+        loss -= np.log(p[y[i]]) # 3.4.9 of d2l book
+        for j in range(num_classes):
+            dW[:, j] += X[i] * p[j] # for all the classes
+        dW[:, y[i]] -= X[i] # for the correct class. (3.4.9 of d2l book)
+    loss /= num_train
+    dW /= num_train
+    # regularization
+    loss += reg * np.sum(np.power(W, 2))
+    dW += reg * 2 * W
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
     return loss, dW
@@ -58,7 +71,19 @@ def softmax_loss_vectorized(W, X, y, reg):
     # regularization!                                                           #
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+    num_train = X.shape[0]
+    # please refer to the naive version for explanation.
+    S = X.dot(W)
+    U = np.exp(S)
+    c = np.sum(U, axis=1).reshape(-1, 1) # sum(exp(f_k)) reshaped to (num_train, 1)
+    p = U / c # exp(f_j) / sum(exp(f_k))
+    loss -= np.sum(np.log(p[np.arange(num_train), y]))
+    p[np.arange(num_train), y] -= 1
+    dW += (X.T).dot(p)
+    loss /= num_train
+    dW /= num_train
+    loss += reg * np.sum(np.power(W, 2))
+    dW += reg * 2 * W
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
