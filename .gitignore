@@ -2,3 +2,6 @@ data/**
 assignments/assignment1/cs231n/datasets/**
 *.pyc
 assignments/**/*.pyc
+assignments/assignment1/cs231n/classifiers/__pycache__/**
+assignments/assignment1/cs231n/classifiers/.ipynb_checkpoints/**
+assignments/assignment1/.ipynb_checkpoints/**
