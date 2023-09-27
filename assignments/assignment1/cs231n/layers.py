@@ -27,8 +27,9 @@ def affine_forward(x, w, b):
     # will need to reshape the input into rows.                               #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    N = x.shape[0]
+    D = w.shape[0]
+    out = x.reshape(N, D).dot(w) + b
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -60,8 +61,12 @@ def affine_backward(dout, cache):
     # TODO: Implement the affine backward pass.                               #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    N = x.shape[0]
+    D = w.shape[0]
+    # y = XW + b
+    db = np.sum(dout, 0) # pf/pb = pf/py, sum along N (data point)
+    dx = dout.dot(w.T).reshape(*x.shape) # pf/px = w.T (reshape to x.shape)
+    dw = x.reshape(N, D).T.dot(dout)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -87,7 +92,7 @@ def relu_forward(x):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    out = np.maximum(x, 0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -114,7 +119,8 @@ def relu_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    dout[x < 0] = 0
+    dx = dout
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -772,9 +778,21 @@ def svm_loss(x, y):
     # TODO: Copy over your solution from A1.
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    num_train = x.shape[0]
+    # scores[np.arange(num_train), y] means the label index for each training data's score.
+    correct_class_score = x[np.arange(num_train), y].reshape(num_train, 1)
+    margin = np.maximum(0, x - correct_class_score + 1)
+    # set the margin corresponding to the label index to zero.
+    margin[np.arange(num_train), y] = 0.0
+    loss = np.sum(margin) / num_train
 
-    pass
-
+    dx = np.copy(margin) # just copy margin shampe (train_num, num_classes)
+    dx[margin > 0] = 1.0 # the rest will be 0
+    num_safe = np.sum(dx, axis=1) # the total number where margin > 0 for each row (each train data)
+    # see svm_loss_naive
+    dx[np.arange(num_train), y] -= num_safe # how many times at dloss[:, y] we need to substract X[i]
+    dx /= num_train
+    
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
@@ -802,7 +820,14 @@ def softmax_loss(x, y):
     # TODO: Copy over your solution from A1.
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
+    num_train = x.shape[0]
+    U = np.exp(x)
+    c = np.sum(U, axis=1).reshape(-1, 1)
+    p = U / c
+    loss = -np.sum(np.log(p[np.arange(num_train), y])) / num_train
+    dx = np.copy(p)
+    dx[np.arange(num_train), y] -= 1
+    dx /= num_train
     pass
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
