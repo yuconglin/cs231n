@@ -222,8 +222,20 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # might prove to be helpful.                                          #
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+        # first get sample mean, variance, and normalized values.
+        x_mu = np.mean(x, axis=0) # row wise mean (D, )
+        x_cen = x - x_mu
+        x_var = np.var(x, axis=0) # row wise variance (D, )
+        x_sig_inv = 1.0 / np.sqrt(x_var + eps) # (D, )
+        x_norm = x_cen * x_sig_inv
+        out = gamma * x_norm + beta
+        cache = (x_cen, x_var, x_sig_inv, x_norm, gamma, eps)
 
-        pass
+        sample_mean = x_mu
+        sample_var = x_var
+        sample_norm = x_norm
+        running_mean = momentum * running_mean + (1 - momentum) * sample_mean
+        running_var = momentum * running_var + (1 - momentum) * sample_var
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -237,8 +249,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # Store the result in the out variable.                               #
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-        pass
+        out = gamma * (x - running_mean) / np.sqrt(running_var + eps) + beta
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -278,8 +289,47 @@ def batchnorm_backward(dout, cache):
     # might prove to be helpful.                                              #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    x_cen, x_var, x_sig_inv, x_norm, gamma, eps = cache
+    N = dout.shape[0]
+    
+    # df/d_{x_norm} = df/d_out * d_out/d_{x_norm}
+    dx_norm = dout * gamma
 
-    pass
+    # df/d_gamma = df/d_out * d_out/d_{gamma}
+    # df/d_out_0 * x_norm_0 + df/d_out_1 * x_norm_1 + ... + df/d_out_n * x_norm_n
+    dgamma = np.sum(dout * x_norm, axis=0)
+
+    # df/d_beta = df/d_out * d_out/d_{beta}
+    # df/d_out_0 + df/d_out_1 + ... + df/d_out_n
+    dbeta = np.sum(dout, axis=0)
+    
+    # df/d_{x_cen} = df/d_{x_norm} * d_{x_norm}/d_{x_cen}
+    dx_cen = dx_norm * x_sig_inv
+    
+    # df/d_{x_sv} = df/d_{x_norm} * d_{x_norm}/d_{x_sv}
+    # the result is:
+    # df/d_{x_norm}_0 * x_cen_0 + df/d_{x_norm}_1 * x_cen_1 + ... + df/d_{x_norm}_n * x_cen_n
+    dsig_inv = np.sum(dx_norm * x_cen, axis=0)
+    
+    # df/d_{x_var} = df/d_{x_sv} * d_{x_sv}/d_{x_var}
+    # direct use of caculus equation: d_{x_sv}/d_{x_var} = -0.5 * pow(x_sv, -3)
+    dx_var = -0.5 * dsig_inv * np.power(x_sig_inv, 3)
+    
+    # straighforward
+    dx = dx_cen
+    
+    # df/d_{x_cen} = df/d_{x_var} * d_{x_var}/d_{x_cen}
+    # refer https://numpy.org/doc/stable/reference/generated/numpy.var.html about how np.var(xxx, axis=0)
+    # is defined. Here twice of matrix transpose were used to get the results below.
+    dx_cen += dx_var * 2 / N * x_cen
+    
+    # df/d_{mu} = df/d_{x_cen} * d_{x_cen}/dmu
+    # We have to sum to get the desired results, because
+    # df/d_{mu} = -(df/d_{x_cen}_{0} + df/d_{x_cen}_{1} + df/d_{x_cen}_{2} + ... + df/d_{x_cen}_{n})
+    dmu = -1 * np.sum(dx_cen, axis=0)
+    
+    # broadcast df/dx = df/d_{mu} * d_{mu}/dx
+    dx += dmu / N 
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -312,8 +362,20 @@ def batchnorm_backward_alt(dout, cache):
     # single statement; our implementation fits on a single 80-character line.#
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+    x_cen, x_var, x_sig_inv, x_norm, gamma, eps = cache
+    N, _ = dout.shape
 
-    pass
+    dgamma = np.sum(dout * x_norm, 0)
+    dbeta = np.sum(dout, 0)
+    
+    # dx = dx_cen + dx_mu / N
+    # dx_cen = dx_norm * x_sv + dx_var * 2/N * X_cen
+    # dx_mu = -np.sum(dx_cen, 0)
+    #       = -np.sum(dout * gamma * x_sv + 2/N * dx_var * X_cen, 0)
+    #       = -np.sum(dout * gamma * x_sv, 0) - 2 * dx_var * np.mean(X_cen, 0)
+    # dx_var = -0.5 * np.sum(dout * gamma * X_cen, 0) * np.power(X_sv, 3)
+    # dx_norm = dout * gamma * X_sv
+    dx = dout * gamma * x_sig_inv  - (0.5 * np.sum(dout * gamma * x_cen, 0) * np.power(x_sig_inv, 3)) * (2/N) * x_cen - (1.0 / N) * (np.sum(dout * gamma * x_sig_inv, 0))  + (1.0 / N) * (np.sum(dout * gamma * x_cen, 0) * np.power(x_sig_inv, 3)) * np.mean(x_cen, 0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -357,8 +419,14 @@ def layernorm_forward(x, gamma, beta, ln_param):
     # the batch norm code and leave it almost unchanged?                      #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
+    x_t = x.T # (D, N)
+    x_mu = np.mean(x_t, 0) # (N, )
+    x_cen = x_t - x_mu # (D, N)
+    x_var = np.var(x_t, 0) # (N, )
+    x_sig_inv = 1. / np.sqrt(x_var + eps) # (N, )
+    x_norm = x_cen * x_sig_inv # (D, N)
+    out = gamma * x_norm.T + beta # (D, ) * (N, D) + (D, ) -> (N, D)
+    cache = (x_cen, x_var, x_sig_inv, x_norm, gamma, eps)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -391,9 +459,19 @@ def layernorm_backward(dout, cache):
     # still apply!                                                            #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-    pass
-
+    x_cen, x_var, x_sig_inv, x_norm, gamma, eps = cache
+    N, D = dout.shape
+    dbeta = np.sum(dout, 0)
+    dgamma = np.sum(dout * x_norm.T, 0)
+    dx_norm = (dout * gamma).T # (D, N)
+    dx_cen = dx_norm * x_sig_inv
+    dsig_inv = np.sum(dx_norm * x_cen, 0)
+    dx_var = -0.5 * dsig_inv * np.power(x_sig_inv, 3)
+    dx_t = dx_cen
+    dx_cen += dx_var * 2 / D * x_cen
+    dmu = - np.sum(dx_cen, 0)
+    dx_t += dmu / D
+    dx = dx_t.T
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
     #                             END OF YOUR CODE                            #
