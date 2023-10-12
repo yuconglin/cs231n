@@ -94,6 +94,7 @@ class FullyConnectedNet(object):
         # (train / test). You can pass the same dropout_param to each dropout layer.
         self.dropout_param = {}
         if self.use_dropout:
+            print('use dropout')
             self.dropout_param = {"mode": "train", "p": dropout_keep_ratio}
             if seed is not None:
                 self.dropout_param["seed"] = seed
@@ -187,10 +188,10 @@ class FullyConnectedNet(object):
             names.append('r'+str(i))
 
             if self.use_dropout:
-                d, d_c = dropout_forward(o[-1], self.droput_param)
+                d, d_c = dropout_forward(o[-1], self.dropout_param)
                 o.append(d)
                 c.append(d_c)
-                names.append('r'+str(i))
+                names.append('d'+str(i))
 
             outs.update(list(zip(names, o[1:])))
             caches.update(list(zip(names, c)))
